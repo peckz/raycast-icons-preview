@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Grid, getPreferenceValues, showToast, Toast, ActionPanel, Action, Icon } from "@raycast/api";
-import * as fs from "fs";
+import { promises as fs } from "fs";
 import * as path from "path";
+import * as os from "os";
 
 interface Preferences {
   iconFolders?: string;
@@ -49,12 +50,14 @@ export default function Command() {
       const allIcons: IconItem[] = [];
 
       for (const folderPath of folderPaths) {
-        // Expand ~ to home directory
+        // Expand ~ to home directory using path.resolve and os.homedir()
         const expandedPath = folderPath.startsWith("~")
-          ? folderPath.replace("~", process.env.HOME || "")
-          : folderPath;
+          ? path.resolve(os.homedir(), folderPath.slice(1))
+          : path.resolve(folderPath);
 
-        if (!fs.existsSync(expandedPath)) {
+        try {
+          await fs.access(expandedPath);
+        } catch {
           await showToast({
             style: Toast.Style.Failure,
             title: "Folder not found",
@@ -66,7 +69,7 @@ export default function Command() {
         const folderName = path.basename(expandedPath);
         folderInfos.push({ name: folderName, path: expandedPath });
 
-        const files = fs.readdirSync(expandedPath);
+        const files = await fs.readdir(expandedPath);
         const svgFiles = files.filter((file) => file.toLowerCase().endsWith(".svg"));
 
         for (const file of svgFiles) {
